@@ -1,0 +1,6 @@
+{
+  "name": "Kensei Arena",
+  "description": "3D martial arts fighting game built with Three.js, featuring articulated 3D fighters, dynamic arena lighting, enemy AI, and multi-touch mobile landscape controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
