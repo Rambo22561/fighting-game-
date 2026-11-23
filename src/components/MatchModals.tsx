@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight, Home, MapPin, Play, RotateCcw, Trophy, Users } from 'lucide-react';
+import { ChevronRight, Coins, Home, MapPin, Play, RotateCcw, Sparkles, Trophy, Users } from 'lucide-react';
 import { FighterSpec, HudSnapshot } from '../game/types';
 
 interface PauseModalProps {
@@ -75,10 +75,18 @@ export const PauseModal: React.FC<PauseModalProps> = ({
   );
 };
 
+export interface MatchRewardSummary {
+  goldEarned: number;
+  bountyJustCompleted: boolean;
+  bountyTitle?: string;
+  unlockedSkinName?: string;
+}
+
 interface ResultModalProps {
   hud: HudSnapshot;
   p1Spec: FighterSpec;
   p2Spec: FighterSpec;
+  matchReward?: MatchRewardSummary | null;
   onRematch: () => void;
   onNextLevel?: () => void;
   onRestartTower?: () => void;
@@ -93,6 +101,7 @@ export const ResultModal: React.FC<ResultModalProps> = ({
   hud,
   p1Spec,
   p2Spec,
+  matchReward,
   onRematch,
   onNextLevel,
   onRestartTower,
@@ -225,6 +234,38 @@ export const ResultModal: React.FC<ResultModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Arena Gold & Daily Bounty Rewards */}
+        {matchReward && matchReward.goldEarned > 0 && (
+          <div
+            className={`mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 ${
+              matchReward.bountyJustCompleted
+                ? 'border-amber-400/50 bg-amber-500/15'
+                : 'border-white/10 bg-[#0b0e14]/70'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {matchReward.bountyJustCompleted ? (
+                <Sparkles className="h-4 w-4 shrink-0 text-amber-400" />
+              ) : (
+                <Coins className="h-4 w-4 shrink-0 text-amber-400" />
+              )}
+              <div className="text-xs">
+                {matchReward.bountyJustCompleted ? (
+                  <span className="font-bold text-amber-200">
+                    Daily Bounty Complete ({matchReward.bountyTitle})
+                    {matchReward.unlockedSkinName ? ` · Unlocked ${matchReward.unlockedSkinName} Skin` : ''}
+                  </span>
+                ) : (
+                  <span className="font-semibold text-slate-300">Victory Purse</span>
+                )}
+              </div>
+            </div>
+            <span className="font-mono-num text-xs font-bold text-amber-300">
+              +{matchReward.goldEarned} Gold
+            </span>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="mt-4 flex flex-wrap gap-2.5">

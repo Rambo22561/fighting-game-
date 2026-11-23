@@ -1,9 +1,11 @@
 import * as THREE from 'three';
+import { DestructibleArenaManager } from './destructibles';
 import { ProceduralTextureSet } from './textures';
 import { StageId } from './types';
 
 export interface ArenaHandle {
   group: THREE.Group;
+  destructibles: DestructibleArenaManager;
   update: (elapsed: number, dt: number) => void;
   dispose: () => void;
 }
@@ -412,7 +414,7 @@ export function createFightingArena(
   // =========================================================================
   // STAGE 3: GRAND DOJO (Polished Hardwood Sanctuary & Shoji Screens)
   // =========================================================================
-  else {
+  else if (stageId === 'dojo') {
     setupLighting(0x161010, 0.018, 0xfcd34d, 0x2b170e, 0.78, 0xffe4b5, 2.1, 0xf97316, 1.3);
 
     // Elevated Polished Hardwood Dais (top at y = 0)
@@ -557,14 +559,347 @@ export function createFightingArena(
     });
   }
 
+  // =========================================================================
+  // STAGE 4: OBSIDIAN CALDERA (Volcanic Basalt Dais & Molten Lava Ring)
+  // =========================================================================
+  else if (stageId === 'volcano') {
+    setupLighting(0x160907, 0.022, 0xfb923c, 0x2b0b07, 0.8, 0xffd0a6, 2.25, 0xff5a1f, 1.7);
+
+    const daisMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        map: textures.getVolcanoFloorMap(),
+        roughness: 0.78,
+        metalness: 0.12,
+      }),
+    );
+    const daisMesh = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(6.8, 7.4, 0.72, 32)), daisMat);
+    daisMesh.position.y = -0.36;
+    daisMesh.receiveShadow = true;
+    group.add(daisMesh);
+
+    const obsidianMat = trackMat(
+      new THREE.MeshPhysicalMaterial({
+        color: 0x151114,
+        roughness: 0.38,
+        metalness: 0.25,
+        clearcoat: 0.45,
+      }),
+    );
+    const magmaMat = trackMat(
+      new THREE.MeshBasicMaterial({
+        color: 0xff5a14,
+      }),
+    );
+
+    const rimTorus = new THREE.Mesh(trackGeo(new THREE.TorusGeometry(6.8, 0.12, 10, 48)), obsidianMat);
+    rimTorus.rotation.x = Math.PI / 2;
+    rimTorus.position.y = -0.02;
+    group.add(rimTorus);
+
+    // Molten Lava Sea surrounding the raised basalt platform
+    const lavaSea = new THREE.Mesh(trackGeo(new THREE.CircleGeometry(65, 48)), magmaMat);
+    lavaSea.rotation.x = -Math.PI / 2;
+    lavaSea.position.y = -1.25;
+    group.add(lavaSea);
+
+    // Volcanic Stepping Rocks around dais
+    const rockRimMat = trackMat(new THREE.MeshStandardMaterial({ color: 0x1f1718, roughness: 0.9, metalness: 0.08 }));
+    const stepBase = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(8.1, 9.0, 0.58, 24)), rockRimMat);
+    stepBase.position.y = -1.0;
+    stepBase.receiveShadow = true;
+    group.add(stepBase);
+
+    // Instanced Jagged Caldera Spires around perimeter
+    const spireGeo = trackGeo(new THREE.ConeGeometry(2.6, 15, 5));
+    const spireCount = 26;
+    const spires = new THREE.InstancedMesh(spireGeo, rockRimMat, spireCount);
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < spireCount; i++) {
+      const a = (i / spireCount) * Math.PI * 2;
+      const dist = 19 + (i % 4) * 5;
+      dummy.position.set(Math.cos(a) * dist, 3.2 + (i % 3) * 1.4, Math.sin(a) * dist);
+      dummy.rotation.y = a * 1.3;
+      const sc = 0.8 + (i % 5) * 0.24;
+      dummy.scale.set(sc * 1.1, sc * 1.35, sc * 1.1);
+      dummy.updateMatrix();
+      spires.setMatrixAt(i, dummy.matrix);
+    }
+    spires.instanceMatrix.needsUpdate = true;
+    spires.computeBoundingSphere();
+    group.add(spires);
+
+    // Rising Glowing Embers (Instanced)
+    const emberGeo = trackGeo(new THREE.OctahedronGeometry(0.11, 0));
+    const emberCount = 32;
+    const embers = new THREE.InstancedMesh(emberGeo, magmaMat, emberCount);
+    const emberOffsets = Array.from({ length: emberCount }, (_, i) => ({
+      x: (Math.sin(i * 19.3) * 0.5 + 0.5) * 18 - 9,
+      z: (Math.cos(i * 11.7) * 0.5 + 0.5) * 14 - 7,
+      speed: 1.2 + (i % 5) * 0.35,
+      phase: i * 0.45,
+    }));
+    group.add(embers);
+
+    const lavaGlowL = new THREE.PointLight(0xff5a14, 7.5, 22, 1.4);
+    lavaGlowL.position.set(-7.5, 0.8, -5.5);
+    group.add(lavaGlowL);
+    const lavaGlowR = new THREE.PointLight(0xff7a18, 7.5, 22, 1.4);
+    lavaGlowR.position.set(7.5, 0.8, -5.5);
+    group.add(lavaGlowR);
+
+    animatedHandlers.push((elapsed) => {
+      lavaGlowL.intensity = 7.0 + Math.sin(elapsed * 8) * 1.5;
+      lavaGlowR.intensity = 7.0 + Math.cos(elapsed * 7.2) * 1.5;
+      for (let i = 0; i < emberCount; i++) {
+        const e = emberOffsets[i];
+        const y = ((elapsed * e.speed + e.phase) % 7.5) - 0.8;
+        dummy.position.set(e.x + Math.sin(elapsed * 1.8 + e.phase) * 0.45, y, e.z);
+        const s = 0.65 + Math.sin(elapsed * 4 + e.phase) * 0.3;
+        dummy.scale.setScalar(s);
+        dummy.rotation.set(elapsed + i, elapsed * 0.7, 0);
+        dummy.updateMatrix();
+        embers.setMatrixAt(i, dummy.matrix);
+      }
+      embers.instanceMatrix.needsUpdate = true;
+    });
+  }
+
+  // =========================================================================
+  // STAGE 5: FROZEN SANCTUM (Glacial Ice Dais & Northern Aurora Sky)
+  // =========================================================================
+  else if (stageId === 'glacier') {
+    setupLighting(0x091624, 0.019, 0x7dd3fc, 0x0f273d, 0.92, 0xe0f7ff, 2.2, 0x22d3ee, 1.75);
+
+    const iceDaisMat = trackMat(
+      new THREE.MeshPhysicalMaterial({
+        map: textures.getGlacierFloorMap(),
+        roughness: 0.24,
+        metalness: 0.08,
+        clearcoat: 0.92,
+        clearcoatRoughness: 0.12,
+      }),
+    );
+    const daisMesh = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(6.8, 7.2, 0.68, 32)), iceDaisMat);
+    daisMesh.position.y = -0.34;
+    daisMesh.receiveShadow = true;
+    group.add(daisMesh);
+
+    const frostMetalMat = trackMat(
+      new THREE.MeshPhysicalMaterial({
+        color: 0xbae6fd,
+        metalness: 0.78,
+        roughness: 0.22,
+        clearcoat: 0.4,
+      }),
+    );
+    const snowMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xdbeafe,
+        roughness: 0.92,
+        metalness: 0.02,
+      }),
+    );
+    const crystalMat = trackMat(
+      new THREE.MeshPhysicalMaterial({
+        color: 0x38bdf8,
+        roughness: 0.15,
+        metalness: 0.05,
+        clearcoat: 1.0,
+        transparent: true,
+        opacity: 0.85,
+      }),
+    );
+
+    const iceRim = new THREE.Mesh(trackGeo(new THREE.TorusGeometry(6.82, 0.1, 10, 48)), frostMetalMat);
+    iceRim.rotation.x = Math.PI / 2;
+    iceRim.position.y = -0.02;
+    group.add(iceRim);
+
+    const snowField = new THREE.Mesh(trackGeo(new THREE.CircleGeometry(65, 48)), snowMat);
+    snowField.rotation.x = -Math.PI / 2;
+    snowField.position.y = -1.25;
+    snowField.receiveShadow = true;
+    group.add(snowField);
+
+    // Sculpted Glacial Ice Monoliths around the dais perimeter
+    const crystalGeo = trackGeo(new THREE.ConeGeometry(1.15, 6.2, 6));
+    const crystalCount = 18;
+    const crystals = new THREE.InstancedMesh(crystalGeo, crystalMat, crystalCount);
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < crystalCount; i++) {
+      const a = (i / crystalCount) * Math.PI * 2;
+      const dist = 12.5 + (i % 3) * 3.5;
+      dummy.position.set(Math.cos(a) * dist, 1.2 + (i % 3) * 0.5, Math.sin(a) * dist);
+      dummy.rotation.set(((i % 3) - 1) * 0.14, a, ((i % 2) - 0.5) * 0.18);
+      const sc = 0.75 + (i % 4) * 0.28;
+      dummy.scale.set(sc, sc * 1.2, sc);
+      dummy.updateMatrix();
+      crystals.setMatrixAt(i, dummy.matrix);
+    }
+    crystals.instanceMatrix.needsUpdate = true;
+    crystals.computeBoundingSphere();
+    group.add(crystals);
+
+    // Sweeping Aurora Borealis Sky Ribbon
+    const auroraMat = trackMat(
+      new THREE.MeshBasicMaterial({
+        color: 0x34d399,
+        transparent: true,
+        opacity: 0.48,
+        side: THREE.DoubleSide,
+        fog: false,
+      }),
+    );
+    const auroraRibbon = new THREE.Mesh(trackGeo(new THREE.TorusGeometry(26, 1.45, 8, 48, Math.PI * 0.85)), auroraMat);
+    auroraRibbon.position.set(0, 11.5, -24);
+    auroraRibbon.rotation.set(0.32, 0.2, Math.PI * 0.08);
+    group.add(auroraRibbon);
+
+    animatedHandlers.push((elapsed) => {
+      auroraRibbon.rotation.z = Math.PI * 0.08 + Math.sin(elapsed * 0.45) * 0.08;
+      auroraMat.opacity = 0.36 + Math.sin(elapsed * 0.9) * 0.14;
+    });
+  }
+
+  // =========================================================================
+  // STAGE 6: MISTY GROVE (Jade Stone Dais & Swaying Bamboo Forest)
+  // =========================================================================
+  else {
+    setupLighting(0x0a1714, 0.02, 0xa7f3d0, 0x10241c, 0.88, 0xfef3c7, 2.15, 0x34d399, 1.45);
+
+    const jadeFloorMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        map: textures.getBambooFloorMap(),
+        roughness: 0.62,
+        metalness: 0.1,
+      }),
+    );
+    const daisMesh = new THREE.Mesh(trackGeo(new THREE.CylinderGeometry(6.8, 7.2, 0.65, 32)), jadeFloorMat);
+    daisMesh.position.y = -0.325;
+    daisMesh.receiveShadow = true;
+    group.add(daisMesh);
+
+    const mossStoneMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x1e2e27,
+        roughness: 0.88,
+        metalness: 0.06,
+      }),
+    );
+    const jadeTrimMat = trackMat(
+      new THREE.MeshPhysicalMaterial({
+        color: 0x10b981,
+        roughness: 0.28,
+        metalness: 0.25,
+        clearcoat: 0.65,
+      }),
+    );
+    const bambooMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: 0x2f6b47,
+        roughness: 0.56,
+        metalness: 0.05,
+      }),
+    );
+
+    const rimRing = new THREE.Mesh(trackGeo(new THREE.TorusGeometry(6.8, 0.1, 10, 48)), jadeTrimMat);
+    rimRing.rotation.x = Math.PI / 2;
+    rimRing.position.y = -0.02;
+    group.add(rimRing);
+
+    const forestFloor = new THREE.Mesh(trackGeo(new THREE.CircleGeometry(65, 48)), mossStoneMat);
+    forestFloor.rotation.x = -Math.PI / 2;
+    forestFloor.position.y = -1.25;
+    forestFloor.receiveShadow = true;
+    group.add(forestFloor);
+
+    // Stone Garden Lanterns flanking the dais
+    const lanternPostGeo = trackGeo(new THREE.CylinderGeometry(0.22, 0.34, 1.4, 6));
+    const lanternCoreMat = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xfef3c7,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 1.5,
+      }),
+    );
+    [
+      [-7.4, -4.2],
+      [7.4, -4.2],
+    ].forEach(([lx, lz]) => {
+      const post = new THREE.Mesh(lanternPostGeo, mossStoneMat);
+      post.position.set(lx, -0.55, lz);
+      post.castShadow = true;
+      group.add(post);
+
+      const core = new THREE.Mesh(trackGeo(new THREE.BoxGeometry(0.42, 0.48, 0.42)), lanternCoreMat);
+      core.position.set(lx, 0.35, lz);
+      group.add(core);
+
+      const cap = new THREE.Mesh(trackGeo(new THREE.ConeGeometry(0.55, 0.38, 4)), mossStoneMat);
+      cap.position.set(lx, 0.78, lz);
+      cap.rotation.y = Math.PI / 4;
+      group.add(cap);
+
+      const light = new THREE.PointLight(0xfbbf24, 4.5, 16, 1.5);
+      light.position.set(lx, 0.5, lz);
+      group.add(light);
+    });
+
+    // Dense Swaying Bamboo Grove (InstancedMesh)
+    const stalkGeo = trackGeo(new THREE.CylinderGeometry(0.11, 0.16, 14, 8));
+    const stalkCount = 46;
+    const bambooInstanced = new THREE.InstancedMesh(stalkGeo, bambooMat, stalkCount);
+    const dummy = new THREE.Object3D();
+    const stalkCoords = Array.from({ length: stalkCount }, (_, i) => {
+      const a = (i / stalkCount) * Math.PI * 2;
+      const dist = 10.5 + (i % 5) * 3.8;
+      return {
+        x: Math.cos(a) * dist,
+        z: Math.sin(a) * dist,
+        scale: 0.85 + (i % 4) * 0.18,
+        phase: i * 0.65,
+      };
+    });
+    stalkCoords.forEach((s, i) => {
+      dummy.position.set(s.x, 5.2, s.z);
+      dummy.scale.set(s.scale, 1, s.scale);
+      dummy.updateMatrix();
+      bambooInstanced.setMatrixAt(i, dummy.matrix);
+    });
+    bambooInstanced.instanceMatrix.needsUpdate = true;
+    bambooInstanced.computeBoundingSphere();
+    group.add(bambooInstanced);
+
+    animatedHandlers.push((elapsed) => {
+      for (let i = 0; i < stalkCount; i++) {
+        const s = stalkCoords[i];
+        dummy.position.set(s.x, 5.2, s.z);
+        dummy.scale.set(s.scale, 1, s.scale);
+        dummy.rotation.set(
+          Math.sin(elapsed * 0.8 + s.phase) * 0.025,
+          0,
+          Math.cos(elapsed * 0.9 + s.phase) * 0.03,
+        );
+        dummy.updateMatrix();
+        bambooInstanced.setMatrixAt(i, dummy.matrix);
+      }
+      bambooInstanced.instanceMatrix.needsUpdate = true;
+    });
+  }
+
+  const destructibles = new DestructibleArenaManager(group, stageId, isSoftwareGl);
+
   return {
     group,
-    update: (elapsed: number) => {
+    destructibles,
+    update: (elapsed: number, dt: number) => {
       for (let i = 0; i < animatedHandlers.length; i++) {
         animatedHandlers[i](elapsed);
       }
+      destructibles.update(elapsed, dt);
     },
     dispose: () => {
+      destructibles.dispose();
       scene.remove(group);
       geometries.forEach((g) => g.dispose());
       materials.forEach((m) => m.dispose());

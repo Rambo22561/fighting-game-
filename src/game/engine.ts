@@ -4,12 +4,15 @@ import { FighterAiController } from './ai';
 import { updateFighterAnimation } from './animations';
 import { ARENA_RADIUS, ArenaHandle, createFightingArena } from './arena';
 import { combatAudio } from './audio';
+import { DestructibleSplashEvent } from './destructibles';
 import { createFighterInstance, FighterInstance } from './fighters';
 import { createProceduralTextures, ProceduralTextureSet } from './textures';
 import {
   Difficulty,
   FIGHTER_ROSTER,
+  FighterActionState,
   FighterId,
+  FighterSkinId,
   GameMode,
   GameScreen,
   HudSnapshot,
@@ -19,6 +22,7 @@ import {
   StageId,
 } from './types';
 import { CombatVfxManager } from './vfx';
+import { applySkinToFighterSpec } from './bounty';
 
 // Pre-allocated math helpers (Zero GC inside tick loop)
 const _camPosTarget = new THREE.Vector3();
@@ -43,6 +47,7 @@ export class KenseiGameEngine {
   private p2!: FighterInstance;
   private p1Id: FighterId = 'ryujin';
   private p2Id: FighterId = 'valkyrie';
+  private p1SkinId: FighterSkinId = 'default';
   private stageId: StageId = 'temple';
   private difficulty: Difficulty = 'challenger';
   private gameMode: GameMode = 'versus';
@@ -66,6 +71,9 @@ export class KenseiGameEngine {
   private frameId = 0;
   private disposed = false;
   private contextLost = false;
+  private galleryYaw = 0.45;
+  private galleryAutoRotate = true;
+  private galleryPreviewDuration = 0;
 
   // Match telemetry stats for Victory/Defeat summary
   private stats = {
@@ -220,7 +228,7 @@ export class KenseiGameEngine {
     this.p2Id = p2Id;
 
     this.p1 = createFighterInstance(
-      this.getSpec(p1Id),
+      applySkinToFighterSpec(this.getSpec(p1Id), this.p1SkinId),
       this.textures.fabricBump,
       this.textures.contactShadowMap,
       -2.2,
@@ -240,14 +248,78 @@ export class KenseiGameEngine {
   // Public API for React UI Controls
   public setScreen(screen: GameScreen): void {
     this.screen = screen;
-    if (screen === 'menu' || screen === 'select' || screen === 'stage' || screen === 'tournament') {
+    if (screen === 'gallery') {
       combatAudio.setCrowdActive(false);
-      this.resetFighterToShowcase(this.p1, -2.0, 1);
-      this.resetFighterToShowcase(this.p2, 2.0, -1);
+      this.p2.joints.root.visible = false;
+      this.resetFighterToShowcase(this.p1, 0, 1);
+      this.p1.energy = 100;
+      this.galleryYaw = 0.45;
+      this.p1.joints.root.rotation.y = this.galleryYaw;
+      this.galleryPreviewDuration = 0;
       this.bannerText = '';
       this.winner = null;
+    } else {
+      this.p2.joints.root.visible = true;
+      if (screen === 'menu' || screen === 'select' || screen === 'stage' || screen === 'tournament') {
+        combatAudio.setCrowdActive(false);
+        this.arena.destructibles.resetAll();
+        this.resetFighterToShowcase(this.p1, -2.0, 1);
+        this.resetFighterToShowcase(this.p2, 2.0, -1);
+        this.bannerText = '';
+        this.winner = null;
+      }
     }
     this.emitHud(true);
+  }
+
+  public setGalleryFighter(fighterId: FighterId): void {
+    if (fighterId !== this.p1Id) {
+      this.spawnFighters(fighterId, this.p2Id);
+    }
+    this.p2.joints.root.visible = this.screen !== 'gallery';
+    this.resetFighterToShowcase(this.p1, this.screen === 'gallery' ? 0 : -2.0, 1);
+    if (this.screen === 'gallery') {
+      this.p1.energy = 100;
+      this.p1.joints.root.rotation.y = this.galleryYaw;
+      this.galleryPreviewDuration = 0;
+    }
+    this.emitHud(true);
+  }
+
+  public rotateGalleryModel(deltaYaw: number): void {
+    this.galleryYaw += deltaYaw;
+  }
+
+  public setGalleryAutoRotate(auto: boolean): void {
+    this.galleryAutoRotate = auto;
+  }
+
+  public resetGalleryAngle(): void {
+    this.galleryYaw = 0.45;
+  }
+
+  public previewGalleryMove(action: FighterActionState): void {
+    if (this.screen !== 'gallery') return;
+    combatAudio.unlock();
+    this.p1.action = action;
+    this.p1.actionTimer = 0;
+
+    if (action === 'special') {
+      this.galleryPreviewDuration = MOVE_DATA.special.duration;
+      combatAudio.playSpecial();
+      this.vfx.spawnSpecialBurst(0, 1.0, 0, this.p1.spec.palette.energy);
+    } else if (action === 'punch_1' || action === 'punch_2' || action === 'punch_3' || action === 'kick') {
+      this.galleryPreviewDuration = MOVE_DATA[action].duration;
+      combatAudio.playWhoosh(action === 'punch_3' ? 0.85 : 1.1);
+    } else if (action === 'block') {
+      this.galleryPreviewDuration = 1.25;
+      combatAudio.playBlock();
+    } else if (action === 'victory') {
+      this.galleryPreviewDuration = 1.6;
+      combatAudio.playUiClick();
+    } else {
+      this.galleryPreviewDuration = 0;
+    }
   }
 
   public setStage(stageId: StageId): void {
@@ -265,6 +337,22 @@ export class KenseiGameEngine {
       this.resetFighterToShowcase(this.p2, 2.0, -1);
       this.emitHud(true);
     }
+  }
+
+  public setPlayerSkin(skinId: FighterSkinId): void {
+    if (skinId === this.p1SkinId) return;
+    this.p1SkinId = skinId;
+    if (this.screen === 'fighting' || this.screen === 'paused') return;
+
+    this.spawnFighters(this.p1Id, this.p2Id);
+    this.p2.joints.root.visible = this.screen !== 'gallery';
+    this.resetFighterToShowcase(this.p1, this.screen === 'gallery' ? 0 : -2.0, 1);
+    this.resetFighterToShowcase(this.p2, 2.0, -1);
+    if (this.screen === 'gallery') {
+      this.p1.energy = 100;
+      this.p1.joints.root.rotation.y = this.galleryYaw;
+    }
+    this.emitHud(true);
   }
 
   public setDifficulty(diff: Difficulty): void {
@@ -364,6 +452,7 @@ export class KenseiGameEngine {
     this.p1LowHpCrowdTriggered = false;
     this.p2LowHpCrowdTriggered = false;
     this.ai.reset();
+    this.arena.destructibles.resetAll();
     this.resetFighterToShowcase(this.p1, -2.3, 1);
     this.resetFighterToShowcase(this.p2, 2.3, -1);
     combatAudio.playGong();
@@ -428,6 +517,25 @@ export class KenseiGameEngine {
 
         if (this.screen === 'fighting') {
           this.stepCombat(dt);
+        } else if (this.screen === 'gallery') {
+          if (this.galleryPreviewDuration > 0) {
+            this.p1.actionTimer += dt;
+            if (this.p1.actionTimer >= this.galleryPreviewDuration) {
+              this.p1.action = 'idle';
+              this.p1.actionTimer = 0;
+              this.galleryPreviewDuration = 0;
+            }
+          }
+          if (this.galleryAutoRotate) {
+            this.galleryYaw += dt * 0.45;
+          }
+          this.p1.joints.root.rotation.y = THREE.MathUtils.damp(
+            this.p1.joints.root.rotation.y,
+            this.galleryYaw,
+            14,
+            dt,
+          );
+          updateFighterAnimation(this.p1, dt, this.elapsed);
         } else {
           // Menu / Select / Result live animations
           updateFighterAnimation(this.p1, dt, this.elapsed);
@@ -560,6 +668,10 @@ export class KenseiGameEngine {
     this.stepFighterPhysics(this.p2, dt);
 
     this.resolveFighterSeparation();
+
+    // Check physical, knockback, and active strike collisions with destructible pillars and vases
+    this.handleFighterEnvCollisions(this.p1, this.p2);
+    this.handleFighterEnvCollisions(this.p2, this.p1);
 
     // Resolve attack hitboxes
     this.checkAttackHit(this.p1, this.p2, true);
@@ -750,6 +862,71 @@ export class KenseiGameEngine {
     combatAudio.playSpecial();
     this.vfx.spawnSpecialBurst(f.x, f.y + 1.0, f.z, f.spec.palette.energy);
     this.shakeIntensity = Math.max(this.shakeIntensity, 0.22);
+
+    const blast = this.arena.destructibles.triggerSpecialBlast(
+      f.x,
+      f.z,
+      5.4,
+      f.spec.palette.energy,
+      this.vfx,
+    );
+    if (blast.shake > 0) {
+      this.shakeIntensity = Math.max(this.shakeIntensity, blast.shake);
+    }
+    if (blast.explosions.length > 0) {
+      const target = f === this.p1 ? this.p2 : this.p1;
+      this.applyVaseExplosionSplash(blast.explosions, target);
+    }
+  }
+
+  private handleFighterEnvCollisions(f: FighterInstance, opponent: FighterInstance): void {
+    const body = this.arena.destructibles.checkFighterCollision(f.x, f.y, f.z, this.vfx);
+    if (body.shake > 0) this.shakeIntensity = Math.max(this.shakeIntensity, body.shake);
+    if (body.explosions.length > 0) this.applyVaseExplosionSplash(body.explosions, opponent);
+
+    if (
+      f.action === 'punch_1' ||
+      f.action === 'punch_2' ||
+      f.action === 'punch_3' ||
+      f.action === 'kick'
+    ) {
+      const move = MOVE_DATA[f.action];
+      if (f.actionTimer >= move.windupEnd && f.actionTimer <= move.activeEnd) {
+        const strike = this.arena.destructibles.checkFighterCollision(
+          f.x + f.facing * (move.range * 0.72),
+          f.y,
+          f.z,
+          this.vfx,
+        );
+        if (strike.shake > 0) this.shakeIntensity = Math.max(this.shakeIntensity, strike.shake);
+        if (strike.explosions.length > 0) {
+          this.applyVaseExplosionSplash(strike.explosions, opponent);
+        }
+      }
+    }
+  }
+
+  private applyVaseExplosionSplash(
+    explosions: DestructibleSplashEvent[],
+    target: FighterInstance,
+  ): void {
+    for (let i = 0; i < explosions.length; i++) {
+      const exp = explosions[i];
+      const dx = target.x - exp.x;
+      const dz = target.z - exp.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist <= 2.25 && target.hp > 1 && target.action !== 'ko') {
+        const chip = Math.min(5, target.hp - 1);
+        target.hp -= chip;
+        target.flashTimer = 0.08;
+        const nx = dist > 0.01 ? dx / dist : target.facing * -1;
+        target.vx += nx * 2.6;
+        if (target === this.p2) {
+          this.stats.damageDealt += chip;
+        }
+        this.vfx.spawnHitSparks(target.x, target.y + 1.0, target.z, false, exp.color);
+      }
+    }
   }
 
   private stepFighterPhysics(f: FighterInstance, dt: number): void {
@@ -987,6 +1164,9 @@ export class KenseiGameEngine {
       const orbitA = this.elapsed * 0.24;
       _camPosTarget.set(Math.sin(orbitA) * 7.8, 2.6 + Math.sin(this.elapsed * 0.4) * 0.35, Math.cos(orbitA) * 7.8);
       _camLookTarget.set(0, 1.15, 0);
+    } else if (this.screen === 'gallery') {
+      _camPosTarget.set(0, 1.56, 4.15);
+      _camLookTarget.set(0, 0.82, 0);
     } else if (this.screen === 'select') {
       _camPosTarget.set(0, 2.05, 6.2);
       _camLookTarget.set(0, 1.15, 0);

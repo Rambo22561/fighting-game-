@@ -7,6 +7,9 @@ export interface ProceduralTextureSet {
   getRooftopFloorMap: () => THREE.CanvasTexture;
   getDojoFloorMap: () => THREE.CanvasTexture;
   getShojiMap: () => THREE.CanvasTexture;
+  getVolcanoFloorMap: () => THREE.CanvasTexture;
+  getGlacierFloorMap: () => THREE.CanvasTexture;
+  getBambooFloorMap: () => THREE.CanvasTexture;
   fabricBump: THREE.CanvasTexture;
   contactShadowMap: THREE.CanvasTexture;
   dispose: () => void;
@@ -22,6 +25,9 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   let rooftopFloorMap: THREE.CanvasTexture | null = null;
   let dojoFloorMap: THREE.CanvasTexture | null = null;
   let shojiMap: THREE.CanvasTexture | null = null;
+  let volcanoFloorMap: THREE.CanvasTexture | null = null;
+  let glacierFloorMap: THREE.CanvasTexture | null = null;
+  let bambooFloorMap: THREE.CanvasTexture | null = null;
 
   const getArenaFloorMap = () => {
     if (arenaFloorMap) return arenaFloorMap;
@@ -301,6 +307,111 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   const contactShadowMap = new THREE.CanvasTexture(shadCanvas);
   created.push(contactShadowMap);
 
+  const getVolcanoFloorMap = () => {
+    if (volcanoFloorMap) return volcanoFloorMap;
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+    const grad = ctx.createRadialGradient(256, 256, 25, 256, 256, 256);
+    grad.addColorStop(0, '#2c1f1e');
+    grad.addColorStop(0.65, '#1d1516');
+    grad.addColorStop(1, '#110c0d');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Molten magma radial cracks
+    ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(256 + Math.cos(a) * 58, 256 + Math.sin(a) * 58);
+      ctx.lineTo(256 + Math.cos(a + 0.08) * 145, 256 + Math.sin(a + 0.08) * 145);
+      ctx.lineTo(256 + Math.cos(a - 0.05) * 245, 256 + Math.sin(a - 0.05) * 245);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#fb923c';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(256, 256, 198, 0, Math.PI * 2);
+    ctx.stroke();
+
+    volcanoFloorMap = new THREE.CanvasTexture(canvas);
+    volcanoFloorMap.colorSpace = THREE.SRGBColorSpace;
+    volcanoFloorMap.anisotropy = aniso;
+    created.push(volcanoFloorMap);
+    return volcanoFloorMap;
+  };
+
+  const getGlacierFloorMap = () => {
+    if (glacierFloorMap) return glacierFloorMap;
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+    const grad = ctx.createRadialGradient(256, 256, 20, 256, 256, 256);
+    grad.addColorStop(0, '#c8f1ff');
+    grad.addColorStop(0.55, '#6ec6e8');
+    grad.addColorStop(1, '#27658a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(256 + Math.cos(a) * 40, 256 + Math.sin(a) * 40);
+      ctx.lineTo(256 + Math.cos(a + 0.14) * 240, 256 + Math.sin(a + 0.14) * 240);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#67e8f9';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(256, 256, 200, 0, Math.PI * 2);
+    ctx.stroke();
+
+    glacierFloorMap = new THREE.CanvasTexture(canvas);
+    glacierFloorMap.colorSpace = THREE.SRGBColorSpace;
+    glacierFloorMap.anisotropy = aniso;
+    created.push(glacierFloorMap);
+    return glacierFloorMap;
+  };
+
+  const getBambooFloorMap = () => {
+    if (bambooFloorMap) return bambooFloorMap;
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+    const grad = ctx.createRadialGradient(256, 256, 30, 256, 256, 256);
+    grad.addColorStop(0, '#2e453b');
+    grad.addColorStop(0.65, '#1e3028');
+    grad.addColorStop(1, '#121f1a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    ctx.strokeStyle = 'rgba(10, 18, 15, 0.65)';
+    ctx.lineWidth = 3;
+    for (let r = 64; r <= 230; r += 44) {
+      ctx.beginPath();
+      ctx.arc(256, 256, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(256, 256, 196, 0, Math.PI * 2);
+    ctx.stroke();
+
+    bambooFloorMap = new THREE.CanvasTexture(canvas);
+    bambooFloorMap.colorSpace = THREE.SRGBColorSpace;
+    bambooFloorMap.anisotropy = aniso;
+    created.push(bambooFloorMap);
+    return bambooFloorMap;
+  };
+
   return {
     getArenaFloorMap,
     getArenaFloorRoughness,
@@ -308,6 +419,9 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
     getRooftopFloorMap,
     getDojoFloorMap,
     getShojiMap,
+    getVolcanoFloorMap,
+    getGlacierFloorMap,
+    getBambooFloorMap,
     fabricBump,
     contactShadowMap,
     dispose: () => {

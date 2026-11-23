@@ -3,6 +3,7 @@ export type GameScreen =
   | 'select'
   | 'stage'
   | 'tournament'
+  | 'gallery'
   | 'fighting'
   | 'paused'
   | 'result';
@@ -25,7 +26,7 @@ export type FighterId =
   | 'ronin'
   | 'raiden';
 
-export type StageId = 'temple' | 'rooftop' | 'dojo';
+export type StageId = 'temple' | 'rooftop' | 'dojo' | 'volcano' | 'glacier' | 'bamboo';
 
 export interface StageSpec {
   id: StageId;
@@ -61,6 +62,30 @@ export const STAGE_ROSTER: StageSpec[] = [
     location: 'Kyoto Master Sanctuary',
     accentHex: '#ef4444',
   },
+  {
+    id: 'volcano',
+    name: 'Obsidian Caldera',
+    subtitle: 'Basalt Forge Dais & Molten Lava Ring',
+    timeOfDay: 'Molten Night',
+    location: 'Mount Fuji Crater Rim',
+    accentHex: '#f97316',
+  },
+  {
+    id: 'glacier',
+    name: 'Frozen Sanctum',
+    subtitle: 'Glacial Ice Ring & Northern Aurora',
+    timeOfDay: 'Aurora Midnight',
+    location: 'Himalayan Ice Spire',
+    accentHex: '#22d3ee',
+  },
+  {
+    id: 'bamboo',
+    name: 'Misty Grove',
+    subtitle: 'Jade Stone Dais & Towering Bamboo Forest',
+    timeOfDay: 'Morning Mist',
+    location: 'Arashiyama High Forest',
+    accentHex: '#10b981',
+  },
 ];
 
 export type FighterActionState =
@@ -90,13 +115,25 @@ export type FighterAccessoryType =
   | 'hood'
   | 'mohawk';
 
+export interface FighterMoveInfo {
+  name: string;
+  input: string;
+  action: FighterActionState;
+  type: 'Strike' | 'Combo' | 'Kick' | 'Defense' | 'Special';
+  damageNote: string;
+  description: string;
+}
+
 export interface FighterSpec {
   id: FighterId;
   name: string;
   title: string;
   style: string;
+  origin: string;
+  lore: string;
   specialName: string;
   specialDesc: string;
+  moves: FighterMoveInfo[];
   maxHp: number;
   moveSpeed: number;
   jumpForce: number;
@@ -132,8 +169,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Ryujin',
     title: 'Crimson Dragon',
     style: 'Ansatsuken Karate',
+    origin: 'Mount Kurama Monastery',
+    lore:
+      'Trained since childhood beneath storm-swept mountain shrines, Ryujin swore to master the forbidden Crimson Dragon fist without surrendering to its rage. He enters the Kensei Arena seeking worthy rivals capable of pushing his ki past mortal limits.',
     specialName: 'Dragon Wave',
     specialDesc: 'Blazing ki surge and rising dragon strike',
+    moves: [
+      {
+        name: 'Dragon Jab',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '7 DMG',
+        description: 'Fast lead snap that opens guard and starts a three-hit chain.',
+      },
+      {
+        name: 'Crimson Straight',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '9 DMG',
+        description: 'Stepping cross punch with crisp forward momentum.',
+      },
+      {
+        name: 'Shoryu Ascent',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '14 DMG · Launch',
+        description: 'Rising dragon uppercut that blasts defenders off their feet.',
+      },
+      {
+        name: 'Crescent Spin Kick',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '13 DMG',
+        description: 'High-arcing roundhouse tuned for mid-range pressure.',
+      },
+      {
+        name: 'Dragon Wave',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '26 DMG · Guard Break',
+        description: 'Full-meter blazing surge that shatters regular blocks.',
+      },
+      {
+        name: 'Mountain Guard',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Tight forearm guard that builds energy while deflecting combos.',
+      },
+    ],
     maxHp: 100,
     moveSpeed: 5.4,
     jumpForce: 9.2,
@@ -157,8 +247,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Valkyrie',
     title: 'Cobalt Tempest',
     style: 'Cyber Taekwondo',
+    origin: 'Neo-Tokyo Sector 9',
+    lore:
+      'Once an elite aerial recon officer, Valkyrie augmented her combat visor with predictive trajectory optics after surviving an orbital ambush. Her supersonic kicking drills turn every square meter of the dais into a wind tunnel.',
     specialName: 'Tempest Spiral',
     specialDesc: 'High-velocity spinning gale kick with shockwave',
+    moves: [
+      {
+        name: 'Aero Palm',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '7 DMG',
+        description: 'Rapid open-hand jab designed to interrupt slower brawlers.',
+      },
+      {
+        name: 'Volt Cross',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '8 DMG',
+        description: 'Precision follow-up strike guided by visor lock-on.',
+      },
+      {
+        name: 'Skyline Upper',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '13 DMG · Launch',
+        description: 'Vaulting palm lift that sends opponents flying backward.',
+      },
+      {
+        name: 'Gale Crescent',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '12 DMG · Long Reach',
+        description: 'Extended cyber-leg snap kick with superior horizontal reach.',
+      },
+      {
+        name: 'Tempest Spiral',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '24 DMG · Guard Break',
+        description: 'Cobalt shockwave rush that punches straight through defenses.',
+      },
+      {
+        name: 'Aegis Visor Guard',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Reactive barrier stance minimizing chip damage on impact.',
+      },
+    ],
     maxHp: 94,
     moveSpeed: 6.2,
     jumpForce: 9.8,
@@ -182,8 +325,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Titan',
     title: 'Iron Colossus',
     style: 'Heavy Pankration',
+    origin: 'Foundry District, Athens',
+    lore:
+      'Forged in subterranean pit rings where rules barely existed, Titan wears forged brass pauldrons weighing over eighty kilograms. What he concedes in foot speed he repays tenfold whenever his gauntlets collide with stone or bone.',
     specialName: 'Seismic Slam',
     specialDesc: 'Earth-shattering brass gauntlet slam shockwave',
+    moves: [
+      {
+        name: 'Anvil Jab',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '9 DMG',
+        description: 'Crushing lead knuckle that hits harder than most heavy blows.',
+      },
+      {
+        name: 'Forge Hook',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '11 DMG',
+        description: 'Wide armored swing driving opponents toward the arena edge.',
+      },
+      {
+        name: 'Colossus Uppercut',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '17 DMG · Launch',
+        description: 'Thunderous rising gauntlet that launches heavyweights skyward.',
+      },
+      {
+        name: 'Pillar Boot',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '16 DMG',
+        description: 'Brutal forward boot kick with heavy stagger force.',
+      },
+      {
+        name: 'Seismic Slam',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '32 DMG · Guard Break',
+        description: 'Seismic twin-gauntlet surge dealing massive impact trauma.',
+      },
+      {
+        name: 'Bastion Wall',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Brass shoulder wall built to endure prolonged rushdown.',
+      },
+    ],
     maxHp: 122,
     moveSpeed: 4.3,
     jumpForce: 8.3,
@@ -207,8 +403,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Kage',
     title: 'Emerald Phantom',
     style: 'Shadow Ninjutsu',
+    origin: 'Iga Mist Valley',
+    lore:
+      'Bound to an ancient clan oath of silence, Kage stalks corrupt warlords using twin wrist-mounted kunai blades and emerald spirit energy. Few opponents ever see the opening slash—only the flutter of his trailing scarf.',
     specialName: 'Phantom Dash',
     specialDesc: 'Lightning-fast shadow lunge and blade arc',
+    moves: [
+      {
+        name: 'Kunai Snap',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '7 DMG',
+        description: 'Razor-quick forearm blade slash with minimal recovery.',
+      },
+      {
+        name: 'Mist Cross',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '9 DMG',
+        description: 'Reverse-grip shadow strike extending combo pressure.',
+      },
+      {
+        name: 'Vortex Fang',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '13 DMG · Launch',
+        description: 'Spinning upward blade cut lifting foes out of stance.',
+      },
+      {
+        name: 'Shadow Whip Kick',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '12 DMG',
+        description: 'Acrobatic high kick honed for whiff-punishing.',
+      },
+      {
+        name: 'Phantom Dash',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '25 DMG · Guard Break',
+        description: 'Emerald spirit lunge carving straight through guarded stances.',
+      },
+      {
+        name: 'Smoke Veil',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Compact shinobi parry stance priming rapid counterattacks.',
+      },
+    ],
     maxHp: 92,
     moveSpeed: 6.5,
     jumpForce: 10.2,
@@ -233,8 +482,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Kurogane',
     title: 'Black Shogun',
     style: 'Armored Kenjutsu',
+    origin: 'Edo Iron Citadel',
+    lore:
+      'Bearing the obsidian crest of a fallen shogunate, Kurogane spent twenty winters perfecting bare-handed techniques capable of snapping tempered katana steel. His golden kabuto horns signal the arrival of absolute battlefield discipline.',
     specialName: 'Shogun Cleave',
     specialDesc: 'Crescent steel shockwave from heavy samurai stance',
+    moves: [
+      {
+        name: 'Iron Palm',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '8 DMG',
+        description: 'Disciplined knife-hand strike built for spacing control.',
+      },
+      {
+        name: 'Citadel Thrust',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '10 DMG',
+        description: 'Armored shoulder-driven straight breaking opponent rhythm.',
+      },
+      {
+        name: 'Crest Breaker',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '16 DMG · Launch',
+        description: 'Heavily weighted rising palm shockwave.',
+      },
+      {
+        name: 'Tachi Sweep Kick',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '15 DMG',
+        description: 'Broad-arcing armored kick with commanding reach.',
+      },
+      {
+        name: 'Shogun Cleave',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '29 DMG · Guard Break',
+        description: 'Golden samurai surge unleashing crushing arena force.',
+      },
+      {
+        name: 'Kabuto Brace',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Immovable shogunate guard stance.',
+      },
+    ],
     maxHp: 112,
     moveSpeed: 4.9,
     jumpForce: 8.7,
@@ -258,8 +560,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Blaze',
     title: 'Solar Striker',
     style: 'Muay Thai',
+    origin: 'Bangkok Ember Stadium',
+    lore:
+      'Undefeated champion of underground torchlit rings, Blaze channels blistering body heat into relentless Muay Thai elbows and knees. Every round he fights grows hotter until the air itself shimmers around his fists.',
     specialName: 'Inferno Knee',
     specialDesc: 'Explosive solar rush and blazing knee impact',
+    moves: [
+      {
+        name: 'Ember Jab',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '7 DMG',
+        description: 'Crisp boxing jab keeping opponents locked inside striking range.',
+      },
+      {
+        name: 'Flare Elbow',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '9 DMG',
+        description: 'Close-quarters rotational strike igniting combo heat.',
+      },
+      {
+        name: 'Solar Uppercut',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '15 DMG · Launch',
+        description: 'Explosive upward hook wrapped in solar sparks.',
+      },
+      {
+        name: 'Tiger Roundhouse',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '14 DMG',
+        description: 'Full-hip Muay Thai roundhouse delivering fierce knockback.',
+      },
+      {
+        name: 'Inferno Knee',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '27 DMG · Guard Break',
+        description: 'Blazing sprint surge shattering shields on impact.',
+      },
+      {
+        name: 'Flame Tight Guard',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'High Muay Thai elbow shell absorbing heavy combos.',
+      },
+    ],
     maxHp: 98,
     moveSpeed: 5.9,
     jumpForce: 9.6,
@@ -283,8 +638,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Frost',
     title: 'Glacier Monk',
     style: 'Cryo Bajiquan',
+    origin: 'Kunlun Ice Peaks',
+    lore:
+      'Meditating inside frozen caverns for a decade, Frost learned to slow his heartbeat and strike with crystalline precision. Beneath his pale ceremonial hood lies calm fury capable of cracking granite with a single inch-punch.',
     specialName: 'Absolute Zero',
     specialDesc: 'Freezing palm burst that shatters opponent guard',
+    moves: [
+      {
+        name: 'Rime Snap',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '7 DMG',
+        description: 'Sharp straight palm checking advancing attackers.',
+      },
+      {
+        name: 'Glacier Ram',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '9 DMG',
+        description: 'Compact Bajiquan shoulder-and-fist drive.',
+      },
+      {
+        name: 'Permafrost Lift',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '14 DMG · Launch',
+        description: 'Chilling short-range burst launching foes upward.',
+      },
+      {
+        name: 'Shatter Heel Kick',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '13 DMG',
+        description: 'Snapping side-snap kick controlling neutral space.',
+      },
+      {
+        name: 'Absolute Zero',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '26 DMG · Guard Break',
+        description: 'Cryo-infused palm detonation breaking defensive shells.',
+      },
+      {
+        name: 'Crystal Shell',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Balanced monk guard turning enemy offense into counter meter.',
+      },
+    ],
     maxHp: 102,
     moveSpeed: 5.3,
     jumpForce: 9.1,
@@ -308,8 +716,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Viper',
     title: 'Venom Fang',
     style: 'Lethal Silat',
+    origin: 'Jakarta Shadow Docks',
+    lore:
+      'A former syndicate enforcer turned rogue duelist, Viper pairs venomous neon arm-blades with deceptive Silat footwork. She slips past heavy swings with effortless agility before carving long, punishing combo chains.',
     specialName: 'Acid Flurry',
     specialDesc: 'Twin arm-blade surge coated in neon toxin',
+    moves: [
+      {
+        name: 'Fang Flick',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '7 DMG · Long Reach',
+        description: 'Extended forearm-blade jab poking safely from range.',
+      },
+      {
+        name: 'Venom Hook',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '9 DMG',
+        description: 'Slashing follow-up keeping stunned opponents pinned.',
+      },
+      {
+        name: 'Cobra Rise',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '14 DMG · Launch',
+        description: 'Acrobatic blade uppercut ending agile strings.',
+      },
+      {
+        name: 'Serpent Tail Kick',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '13 DMG · Long Reach',
+        description: 'Whipping high Silat kick exploiting her top-tier reach.',
+      },
+      {
+        name: 'Acid Flurry',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '25 DMG · Guard Break',
+        description: 'Twin venom-blade lunge slicing straight through blocks.',
+      },
+      {
+        name: 'Coil Parry',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Low-profile defensive coil preparing sudden counter-lunges.',
+      },
+    ],
     maxHp: 90,
     moveSpeed: 6.4,
     jumpForce: 10.0,
@@ -334,8 +795,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Goliath',
     title: 'Crimson Warlord',
     style: 'Brute Sambo',
+    origin: 'Ural Iron Bastion',
+    lore:
+      'Towering above every challenger in the roster, Goliath crushed entire mercenary battalions bare-handed before claiming the crimson warlord mantle. His unmatched durability lets him trade blows until one devastating crush ends the round.',
     specialName: 'Tectonic Crush',
     specialDesc: 'Colossal double-fist slam that launches foes skyward',
+    moves: [
+      {
+        name: 'Warlord Clobber',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '9 DMG',
+        description: 'Massive forearm slam imposing immediate close-range dread.',
+      },
+      {
+        name: 'Siege Straight',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '12 DMG',
+        description: 'Heavy torso-turned smash tearing through guard stamina.',
+      },
+      {
+        name: 'Quake Uppercut',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '18 DMG · Launch',
+        description: 'Bone-rattling uppercut delivering top-tier knockback.',
+      },
+      {
+        name: 'Mammoth Boot',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '17 DMG',
+        description: 'Crushing high boot that punishes reckless approaches.',
+      },
+      {
+        name: 'Tectonic Crush',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '33 DMG · Guard Break',
+        description: 'The single hardest-hitting special attack in the arena.',
+      },
+      {
+        name: 'Ironclad Guard',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Fortress stance paired with a huge 126 HP reserve.',
+      },
+    ],
     maxHp: 126,
     moveSpeed: 4.1,
     jumpForce: 8.0,
@@ -359,8 +873,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Zenith',
     title: 'Astral Sage',
     style: 'Celestial Kung Fu',
+    origin: 'Tibetan Sky Observatory',
+    lore:
+      'Keeper of an astral relic manifested as a floating golden halo, Zenith blends fluid kung fu arcs with cosmic harmonic force. He views combat not as hatred, but as an exact geometric test of balance and timing.',
     specialName: 'Astral Nova',
     specialDesc: 'Radiant violet shockwave unleashed from halo focus',
+    moves: [
+      {
+        name: 'Starlight Palm',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '7 DMG',
+        description: 'Flowing lead palm with crisp recovery and reach.',
+      },
+      {
+        name: 'Orbit Cross',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '9 DMG',
+        description: 'Harmonic rotating palm strike setting up finishers.',
+      },
+      {
+        name: 'Zenith Rising',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '15 DMG · Launch',
+        description: 'Astral-charged uppercut lifting adversaries into the air.',
+      },
+      {
+        name: 'Nebula Sweep',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '14 DMG · Long Reach',
+        description: 'Sweeping celestial kick controlling long mid-range.',
+      },
+      {
+        name: 'Astral Nova',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '27 DMG · Guard Break',
+        description: 'Radiant violet blast channeling full celestial focus.',
+      },
+      {
+        name: 'Halo Barrier',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Composed defensive ward deflecting flurry strings.',
+      },
+    ],
     maxHp: 96,
     moveSpeed: 5.7,
     jumpForce: 9.7,
@@ -384,8 +951,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Ronin',
     title: 'Silver Wanderer',
     style: 'Iaijutsu Strike',
+    origin: 'Kyoto Bamboo Roads',
+    lore:
+      'Wandering beneath a wide bamboo kasa hat, Ronin abandoned noble patronage after refusing an unjust duel. Armed with twin silver iaijutsu arm-blades, he finishes bouts in decisive bursts of razor-sharp precision.',
     specialName: 'Gale Flash',
     specialDesc: 'Blinding silver dash that cuts through defenses',
+    moves: [
+      {
+        name: 'Draw Slash',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '7 DMG · Long Reach',
+        description: 'Quick-draw forearm cut punishing exposed limbs.',
+      },
+      {
+        name: 'Silver Riposte',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '10 DMG',
+        description: 'Twin-edge horizontal slice pushing rivals back.',
+      },
+      {
+        name: 'Moonlit Ascent',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '15 DMG · Launch',
+        description: 'Rising blade arc sending foes tumbling backward.',
+      },
+      {
+        name: 'Bamboo Crescent',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '14 DMG · Long Reach',
+        description: 'Disciplined long-range kick keeping pressure at sword length.',
+      },
+      {
+        name: 'Gale Flash',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '28 DMG · Guard Break',
+        description: 'Silver storm lunge cleaving straight past guards.',
+      },
+      {
+        name: 'Wanderer Guard',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Calm crossed-blade guard poised for iaijutsu counters.',
+      },
+    ],
     maxHp: 98,
     moveSpeed: 5.8,
     jumpForce: 9.4,
@@ -410,8 +1030,61 @@ export const FIGHTER_ROSTER: FighterSpec[] = [
     name: 'Raiden',
     title: 'Thunder Oni',
     style: 'Lightning Kempo',
+    origin: 'Storm Shrine of Nara',
+    lore:
+      'Adorned with forged thunder-oni horns, Raiden attracts static lightning during every fierce exchange. His Kempo strikes crackle like thunderclaps, overwhelming cautious defenders with relentless high-voltage blows.',
     specialName: 'Volt Judgement',
     specialDesc: 'High-voltage thunder clap that detonates on impact',
+    moves: [
+      {
+        name: 'Spark Knuckle',
+        input: 'Punch (J)',
+        action: 'punch_1',
+        type: 'Strike',
+        damageNote: '8 DMG',
+        description: 'Snapping electric fist opening rapid Kempo combos.',
+      },
+      {
+        name: 'Thunder Cross',
+        input: 'Punch ×2',
+        action: 'punch_2',
+        type: 'Combo',
+        damageNote: '10 DMG',
+        description: 'Charged straight right rocking opponent poise.',
+      },
+      {
+        name: 'Oni Skybreaker',
+        input: 'Punch ×3',
+        action: 'punch_3',
+        type: 'Combo',
+        damageNote: '15 DMG · Launch',
+        description: 'Lightning-charged uppercut launching foes into stun.',
+      },
+      {
+        name: 'Storm Heel Kick',
+        input: 'Kick (K)',
+        action: 'kick',
+        type: 'Kick',
+        damageNote: '14 DMG',
+        description: 'High-impact lightning roundhouse.',
+      },
+      {
+        name: 'Volt Judgement',
+        input: 'Special (U)',
+        action: 'special',
+        type: 'Special',
+        damageNote: '29 DMG · Guard Break',
+        description: 'Detonating golden thunder rush breaking every guard.',
+      },
+      {
+        name: 'Static Ward',
+        input: 'Block (L)',
+        action: 'block',
+        type: 'Defense',
+        damageNote: 'Absorbs Hits',
+        description: 'Sturdy Oni guard storing kinetic energy on block.',
+      },
+    ],
     maxHp: 106,
     moveSpeed: 5.5,
     jumpForce: 9.3,
@@ -571,4 +1244,68 @@ export interface HudSnapshot {
     specialsUsed: number;
     elapsedSeconds: number;
   };
+}
+
+export interface MatchHistoryEntry {
+  id: string;
+  timestamp: number;
+  playerFighterId: FighterId;
+  playerName: string;
+  opponentId: FighterId;
+  opponentName: string;
+  outcome: 'victory' | 'defeat' | 'draw';
+  p1Rounds: number;
+  p2Rounds: number;
+  maxCombo: number;
+  damageDealt: number;
+  gameMode: GameMode;
+  arcadeLevel?: number;
+}
+
+export type FighterSkinId =
+  | 'default'
+  | 'gold_sovereign'
+  | 'obsidian_eclipse'
+  | 'emerald_jade'
+  | 'cyber_plasma'
+  | 'crimson_inferno';
+
+export interface FighterSkinSpec {
+  id: FighterSkinId;
+  name: string;
+  subtitle: string;
+  price: number;
+  palette: {
+    primary: number;
+    secondary: number;
+    accent: number;
+    metal: number;
+    energy: number;
+    uiAccent: string;
+  };
+}
+
+export type BountyConditionType =
+  | 'win_min_hp_50'
+  | 'win_combo_4'
+  | 'win_blocks_3'
+  | 'win_specials_2'
+  | 'win_under_45s'
+  | 'win_heavy_flawless';
+
+export interface DailyBountySpec {
+  id: string;
+  dateKey: string;
+  title: string;
+  description: string;
+  condition: BountyConditionType;
+  rewardGold: number;
+  rewardSkinId: FighterSkinId;
+}
+
+export interface BountyProgressState {
+  gold: number;
+  unlockedSkins: FighterSkinId[];
+  equippedSkin: FighterSkinId;
+  completedDateKey: string | null;
 }

@@ -47,8 +47,8 @@ export const StageSelect: React.FC<StageSelectProps> = ({
 
       {/* BOTTOM UNIFIED STAGE SELECTOR DOCK */}
       <div className="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col gap-2.5 rounded-2xl border border-white/15 bg-[#0b0e14]/92 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-3.5">
-        {/* 3 Stage Cards */}
-        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-1 sm:items-center">
+        {/* 6 Stage Cards */}
+        <div className="grid max-h-[124px] flex-1 grid-cols-3 gap-2 overflow-y-auto pr-0.5 sm:max-h-none sm:grid-cols-6 sm:overflow-visible">
           {STAGE_ROSTER.map((stage) => {
             const selected = stage.id === stageId;
             return (
@@ -56,14 +56,14 @@ export const StageSelect: React.FC<StageSelectProps> = ({
                 key={stage.id}
                 type="button"
                 onClick={() => onSelectStage(stage.id)}
-                className={`flex min-h-[54px] flex-1 flex-col items-start justify-center rounded-xl border px-3 py-2 text-left transition-colors ${
+                className={`flex min-h-[52px] flex-col items-start justify-center rounded-xl border px-2.5 py-1.5 text-left transition-colors ${
                   selected
                     ? 'border-amber-400 bg-slate-800/95'
                     : 'border-white/12 bg-slate-900/80 hover:border-white/30'
                 }`}
               >
-                <div className="flex w-full items-center justify-between gap-1.5">
-                  <span className="font-display text-sm font-bold tracking-wide text-white uppercase sm:text-base">
+                <div className="flex w-full items-center justify-between gap-1">
+                  <span className="truncate font-display text-xs font-bold tracking-wide text-white uppercase sm:text-sm">
                     {stage.name}
                   </span>
                   <span
@@ -71,7 +71,7 @@ export const StageSelect: React.FC<StageSelectProps> = ({
                     style={{ backgroundColor: stage.accentHex }}
                   />
                 </div>
-                <span className="mt-0.5 truncate text-[10px] text-slate-400 sm:text-[11px]">
+                <span className="mt-0.5 truncate text-[10px] text-slate-400">
                   {stage.timeOfDay}
                 </span>
               </button>

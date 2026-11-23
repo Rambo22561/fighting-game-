@@ -473,6 +473,102 @@ class CombatAudioEngine {
     });
   }
 
+  public playPropBreak(kind: 'pillar' | 'vase'): void {
+    const ctx = this.ensureReady();
+    if (!ctx || !this.noiseBuffer) return;
+
+    const now = ctx.currentTime;
+
+    if (kind === 'pillar') {
+      // Heavy stone/timber crumble: low sub-bass thud + staggered crunchy masonry debris bursts
+      const thud = ctx.createOscillator();
+      thud.type = 'triangle';
+      thud.frequency.setValueAtTime(118, now);
+      thud.frequency.exponentialRampToValueAtTime(32, now + 0.36);
+
+      const thudGain = ctx.createGain();
+      thudGain.gain.setValueAtTime(0.42, now);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+
+      thud.connect(thudGain);
+      thudGain.connect(ctx.destination);
+      thud.start(now);
+      thud.stop(now + 0.4);
+
+      const rumbleOffsets = [0, 0.06, 0.14];
+      rumbleOffsets.forEach((offset, idx) => {
+        const noise = ctx.createBufferSource();
+        noise.buffer = this.noiseBuffer;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(950 - idx * 180, now + offset);
+        filter.frequency.exponentialRampToValueAtTime(160, now + offset + 0.22);
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.28 / (idx + 1), now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.24);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        noise.start(now + offset, idx * 0.12);
+        noise.stop(now + offset + 0.26);
+      });
+    } else {
+      // Exploding vase / canister: crisp explosive pop + high-frequency shattering ceramic/glass shards
+      const pop = ctx.createOscillator();
+      pop.type = 'sine';
+      pop.frequency.setValueAtTime(190, now);
+      pop.frequency.exponentialRampToValueAtTime(48, now + 0.18);
+
+      const popGain = ctx.createGain();
+      popGain.gain.setValueAtTime(0.36, now);
+      popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+      pop.connect(popGain);
+      popGain.connect(ctx.destination);
+      pop.start(now);
+      pop.stop(now + 0.21);
+
+      const blastNoise = ctx.createBufferSource();
+      blastNoise.buffer = this.noiseBuffer;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(1400, now);
+      bp.frequency.exponentialRampToValueAtTime(340, now + 0.22);
+      bp.Q.value = 0.9;
+
+      const nGain = ctx.createGain();
+      nGain.gain.setValueAtTime(0.32, now);
+      nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+
+      blastNoise.connect(bp);
+      bp.connect(nGain);
+      nGain.connect(ctx.destination);
+      blastNoise.start(now);
+      blastNoise.stop(now + 0.25);
+
+      const shardFreqs = [1820, 2480, 3150, 2120];
+      shardFreqs.forEach((freq, idx) => {
+        const offset = idx * 0.025;
+        const osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + offset);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.72, now + offset + 0.08);
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.11, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.09);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.1);
+      });
+    }
+  }
+
   public playUiClick(): void {
     const ctx = this.ensureReady();
     if (!ctx) return;

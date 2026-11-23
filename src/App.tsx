@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RotateCw, Smartphone } from 'lucide-react';
 import { CharacterSelect } from './components/CharacterSelect';
+import { DailyBountyModal } from './components/DailyBountyModal';
 import { FightHud } from './components/FightHud';
+import { FighterGallery } from './components/FighterGallery';
 import { MainMenu } from './components/MainMenu';
-import { PauseModal, ResultModal } from './components/MatchModals';
+import { MatchHistoryModal } from './components/MatchHistoryModal';
+import { MatchRewardSummary, PauseModal, ResultModal } from './components/MatchModals';
+import { OfflineIndicator } from './components/PWAInstallButton';
 import { StageSelect } from './components/StageSelect';
 import { TouchControls } from './components/TouchControls';
 import { TournamentBracket } from './components/TournamentBracket';
 import { combatAudio } from './game/audio';
+import {
+  evaluateBountyCondition,
+  FIGHTER_SKINS,
+  getDailyBountyForDate,
+  getTodayDateKey,
+  loadBountyProgress,
+  saveBountyProgress,
+} from './game/bounty';
 import { KenseiGameEngine } from './game/engine';
 import {
   advanceTournamentOnPlayerWin,
@@ -15,17 +27,21 @@ import {
   getActivePlayerMatch,
 } from './game/tournament';
 import {
+  BountyProgressState,
   Difficulty,
   FIGHTER_ROSTER,
   FighterId,
+  FighterSkinId,
   GameMode,
   HudSnapshot,
+  MatchHistoryEntry,
   STAGE_ROSTER,
   StageId,
   TournamentState,
 } from './game/types';
 
 const STORAGE_ARCADE_LEVEL_KEY = 'kensei_arcade_level';
+const STORAGE_MATCH_HISTORY_KEY = 'kensei_match_history';
 
 function loadSavedArcadeLevel(): number {
   try {
@@ -40,6 +56,26 @@ function loadSavedArcadeLevel(): number {
 function saveArcadeLevel(level: number): void {
   try {
     window.localStorage.setItem(STORAGE_ARCADE_LEVEL_KEY, String(Math.max(1, Math.min(100, level))));
+  } catch {
+    // Ignore storage restriction
+  }
+}
+
+function loadMatchHistory(): MatchHistoryEntry[] {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_MATCH_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.slice(0, 10) as MatchHistoryEntry[];
+  } catch {
+    return [];
+  }
+}
+
+function saveMatchHistory(entries: MatchHistoryEntry[]): void {
+  try {
+    window.localStorage.setItem(STORAGE_MATCH_HISTORY_KEY, JSON.stringify(entries.slice(0, 10)));
   } catch {
     // Ignore storage restriction
   }
@@ -87,6 +123,12 @@ export default function App() {
   const [gameMode, setGameMode] = useState<GameMode>('versus');
   const [savedArcadeLevel, setSavedArcadeLevel] = useState<number>(() => loadSavedArcadeLevel());
   const [tournament, setTournament] = useState<TournamentState | null>(null);
+  const [matchHistory, setMatchHistory] = useState<MatchHistoryEntry[]>(() => loadMatchHistory());
+  const [showHistory, setShowHistory] = useState(false);
+  const [bountyProgress, setBountyProgress] = useState<BountyProgressState>(() => loadBountyProgress());
+  const [showBounty, setShowBounty] = useState(false);
+  const [matchReward, setMatchReward] = useState<MatchRewardSummary | null>(null);
+  const [galleryId, setGalleryId] = useState<FighterId>('ryujin');
 
   const [muted, setMuted] = useState(false);
   const [contextLost, setContextLost] = useState(false);
@@ -94,6 +136,9 @@ export default function App() {
   const [dismissPortraitHint, setDismissPortraitHint] = useState(false);
 
   const keysHeld = useRef<Set<string>>(new Set());
+  const recordedMatchRef = useRef(false);
+  const bountyProgressRef = useRef<BountyProgressState>(bountyProgress);
+  bountyProgressRef.current = bountyProgress;
 
   // Mount isolated Three.js engine once
   useEffect(() => {
@@ -136,6 +181,93 @@ export default function App() {
   useEffect(() => {
     engineRef.current?.setDifficulty(difficulty);
   }, [difficulty]);
+
+  useEffect(() => {
+    engineRef.current?.setPlayerSkin(bountyProgress.equippedSkin);
+  }, [bountyProgress.equippedSkin]);
+
+  // Automatically record match outcome and evaluate Daily Bounty rewards once when a fight finishes
+  useEffect(() => {
+    if (hud.screen === 'fighting') {
+      recordedMatchRef.current = false;
+      setShowHistory(false);
+      setShowBounty(false);
+      setMatchReward(null);
+      return;
+    }
+
+    if (hud.screen === 'result' && hud.winner && !recordedMatchRef.current) {
+      recordedMatchRef.current = true;
+      const p1 = FIGHTER_ROSTER.find((f) => f.id === p1Id) || FIGHTER_ROSTER[0];
+      const p2 = FIGHTER_ROSTER.find((f) => f.id === p2Id) || FIGHTER_ROSTER[1];
+      const outcome: MatchHistoryEntry['outcome'] =
+        hud.winner === 'p1' ? 'victory' : hud.winner === 'p2' ? 'defeat' : 'draw';
+
+      const newEntry: MatchHistoryEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: Date.now(),
+        playerFighterId: p1.id,
+        playerName: p1.name,
+        opponentId: p2.id,
+        opponentName: p2.name,
+        outcome,
+        p1Rounds: hud.p1Rounds,
+        p2Rounds: hud.p2Rounds,
+        maxCombo: hud.matchStats.maxCombo,
+        damageDealt: hud.matchStats.damageDealt,
+        gameMode: hud.gameMode,
+        arcadeLevel: hud.arcadeLevel,
+      };
+
+      setMatchHistory((prev) => {
+        const next = [newEntry, ...prev].slice(0, 10);
+        saveMatchHistory(next);
+        return next;
+      });
+
+      if (hud.winner === 'p1') {
+        const todayKey = getTodayDateKey();
+        const todayBounty = getDailyBountyForDate(todayKey);
+        const currentProgress = bountyProgressRef.current;
+        const alreadyCompleted = currentProgress.completedDateKey === todayKey;
+        const bountyDoneNow = !alreadyCompleted && evaluateBountyCondition(todayBounty, hud);
+
+        const victoryGold = 40;
+        const bountyGold = bountyDoneNow ? todayBounty.rewardGold : 0;
+        const goldEarned = victoryGold + bountyGold;
+
+        const isNewSkinUnlock =
+          bountyDoneNow && !currentProgress.unlockedSkins.includes(todayBounty.rewardSkinId);
+        const rewardSkin = FIGHTER_SKINS.find((s) => s.id === todayBounty.rewardSkinId);
+
+        const nextUnlocked: FighterSkinId[] = bountyDoneNow
+          ? (Array.from(new Set([...currentProgress.unlockedSkins, todayBounty.rewardSkinId])) as FighterSkinId[])
+          : currentProgress.unlockedSkins;
+
+        const nextProgress: BountyProgressState = {
+          ...currentProgress,
+          gold: currentProgress.gold + goldEarned,
+          unlockedSkins: nextUnlocked,
+          completedDateKey: bountyDoneNow ? todayKey : currentProgress.completedDateKey,
+        };
+
+        saveBountyProgress(nextProgress);
+        setBountyProgress(nextProgress);
+        setMatchReward({
+          goldEarned,
+          bountyJustCompleted: bountyDoneNow,
+          bountyTitle: bountyDoneNow ? todayBounty.title : undefined,
+          unlockedSkinName: isNewSkinUnlock && rewardSkin ? rewardSkin.name : undefined,
+        });
+      } else {
+        setMatchReward(null);
+      }
+    }
+  }, [
+    hud,
+    p1Id,
+    p2Id,
+  ]);
 
   const syncMovementFromKeys = useCallback(() => {
     const held = keysHeld.current;
@@ -308,11 +440,16 @@ export default function App() {
 
   const p1Spec = FIGHTER_ROSTER.find((f) => f.id === p1Id) || FIGHTER_ROSTER[0];
   const p2Spec = FIGHTER_ROSTER.find((f) => f.id === p2Id) || FIGHTER_ROSTER[1];
+  const todayDateKey = getTodayDateKey();
+  const todayBounty = getDailyBountyForDate(todayDateKey);
+  const bountyCompletedToday = bountyProgress.completedDateKey === todayDateKey;
 
   return (
     <div className="relative h-dvh w-screen overflow-hidden bg-[#0b0e14]">
       {/* Isolated WebGL Mount Container */}
       <div ref={mountRef} className="absolute inset-0 h-full w-full" />
+
+      <OfflineIndicator />
 
       {/* Graceful WebGL Context Loss Fallback */}
       {contextLost && (
@@ -344,12 +481,15 @@ export default function App() {
         </div>
       )}
 
-      {/* Screen 1: Main Menu */}
-      {hud.screen === 'menu' && (
+      {/* Screen 1: Main Menu, Match History & Daily Bounty Overlays */}
+      {hud.screen === 'menu' && !showHistory && !showBounty && (
         <MainMenu
           difficulty={difficulty}
           muted={muted}
           savedArcadeLevel={savedArcadeLevel}
+          historyCount={matchHistory.length}
+          gold={bountyProgress.gold}
+          bountyCompletedToday={bountyCompletedToday}
           onChangeDifficulty={(d) => {
             combatAudio.unlock();
             combatAudio.playUiClick();
@@ -381,6 +521,105 @@ export default function App() {
             combatAudio.unlock();
             combatAudio.playUiClick();
             engineRef.current?.setScreen('stage');
+          }}
+          onOpenHistory={() => {
+            combatAudio.unlock();
+            combatAudio.playUiClick();
+            setShowHistory(true);
+          }}
+          onOpenGallery={() => {
+            combatAudio.unlock();
+            combatAudio.playUiClick();
+            setGalleryId(p1Id);
+            engineRef.current?.setGalleryFighter(p1Id);
+            engineRef.current?.setScreen('gallery');
+          }}
+          onOpenBounty={() => {
+            combatAudio.unlock();
+            combatAudio.playUiClick();
+            setShowBounty(true);
+          }}
+        />
+      )}
+
+      {/* Screen 1B: 3D Fighter Gallery */}
+      {hud.screen === 'gallery' && (
+        <FighterGallery
+          selectedId={galleryId}
+          onSelectFighter={(id) => {
+            combatAudio.unlock();
+            combatAudio.playUiClick();
+            setGalleryId(id);
+            engineRef.current?.setGalleryFighter(id);
+          }}
+          onRotateModel={(delta) => engineRef.current?.rotateGalleryModel(delta)}
+          onToggleAutoRotate={(auto) => {
+            combatAudio.playUiClick();
+            engineRef.current?.setGalleryAutoRotate(auto);
+          }}
+          onResetAngle={() => {
+            combatAudio.playUiClick();
+            engineRef.current?.resetGalleryAngle();
+          }}
+          onPreviewMove={(action) => engineRef.current?.previewGalleryMove(action)}
+          onUseFighter={(id) => {
+            combatAudio.unlock();
+            combatAudio.playUiClick();
+            setP1Id(id);
+            engineRef.current?.setSelectedFighters(id, p2Id);
+            engineRef.current?.setScreen('select');
+          }}
+          onBack={() => {
+            combatAudio.playUiClick();
+            engineRef.current?.setSelectedFighters(p1Id, p2Id);
+            engineRef.current?.setScreen('menu');
+          }}
+        />
+      )}
+
+      {hud.screen === 'menu' && showHistory && (
+        <MatchHistoryModal
+          entries={matchHistory}
+          onClose={() => {
+            combatAudio.playUiClick();
+            setShowHistory(false);
+          }}
+          onClearHistory={() => {
+            combatAudio.playUiClick();
+            setMatchHistory([]);
+            saveMatchHistory([]);
+          }}
+        />
+      )}
+
+      {hud.screen === 'menu' && showBounty && (
+        <DailyBountyModal
+          bounty={todayBounty}
+          progress={bountyProgress}
+          completedToday={bountyCompletedToday}
+          onEquipSkin={(skinId) => {
+            combatAudio.unlock();
+            combatAudio.playUiClick();
+            const next: BountyProgressState = { ...bountyProgress, equippedSkin: skinId };
+            saveBountyProgress(next);
+            setBountyProgress(next);
+          }}
+          onUnlockSkin={(skinId, price) => {
+            if (bountyProgress.gold < price || bountyProgress.unlockedSkins.includes(skinId)) return;
+            combatAudio.unlock();
+            combatAudio.playUiClick();
+            const next: BountyProgressState = {
+              ...bountyProgress,
+              gold: bountyProgress.gold - price,
+              unlockedSkins: [...bountyProgress.unlockedSkins, skinId],
+              equippedSkin: skinId,
+            };
+            saveBountyProgress(next);
+            setBountyProgress(next);
+          }}
+          onClose={() => {
+            combatAudio.playUiClick();
+            setShowBounty(false);
           }}
         />
       )}
@@ -546,6 +785,7 @@ export default function App() {
           hud={hud}
           p1Spec={p1Spec}
           p2Spec={p2Spec}
+          matchReward={matchReward}
           onRematch={() => {
             combatAudio.playUiClick();
             engineRef.current?.restartMatch();
